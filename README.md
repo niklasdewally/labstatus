@@ -1,6 +1,6 @@
 # labstatus
 
-A script to easily find a free lab machine to use, and check the status of many remote machines.
+A script to easily find a free lab machine to use, and more generally to check the status of many remote machines.
 
 ## Usage
 
@@ -8,7 +8,7 @@ For information on how to use the command, see `./labstatus -h`.
 
 Note that `labstatus` uses `ssh` under the hood - the given hostnames must be accessable via `ssh` using public-key authentication.
 
-To set a default list of clients, put `alias labstatus=labstatus -f ~/myfavclients.txt` in your `.bashrc`.
+To set a default list of clients, put `alias labstatus=labstatus -f ~/myfavclients.txt` in your `.bashrc` (or shell of choice!).
 
 ### Examples
 
