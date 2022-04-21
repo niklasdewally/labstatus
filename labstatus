@@ -1,0 +1,86 @@
+#!/bin/bash
+shopt -s expand_aliases
+
+
+function usage () {
+    echo "Usage: $0 [-F] -f list_of_machines"
+}
+
+function printHelp () {
+    usage
+    echo "Check the status of a list of machines."
+    echo 
+    echo "Options:"
+    echo " -f       a file containing a list of hostnames to check."
+    echo " -F       return a list of machines that are currently free"
+    echo 
+    echo "Statuses:"
+    echo " free:           the machine is online and not being currently used by any logged in users."
+    echo " unreachable:    the machine cannot be reached by SSH." 
+    echo " busy (remote):  the machine is being used by a user over SSH."
+    echo " busy (desktop): the machine is being used in person."
+}
+
+
+function getStatus () {
+    local host=$1
+    # Check connectivity
+    ssh -qnt $host -o ConnectTimeout=5 -o "StrictHostKeyChecking no" 'exit 0' 2> /dev/null
+    if [[ $? -ne 0 ]]; then
+        echo "unreachable"
+        return 0
+    fi
+
+    # Iterate over current sessions and check idle-ness
+    for sessionID in $(loginctl list-sessions -H $host 2> /dev/null | awk 'NR > 1 {print $1}')
+    do
+        local sessionInfo=$(loginctl show-session -H $host $sessionID 2> /dev/null)
+        local isIdle=$(echo $sessionInfo | awk -F= '$1 == "IdleHint" {print $2}')
+
+        if [[ $isIdle = "no"  ]]; then
+            local isRemote =$(echo $sessionInfo | awk -F= '$1 == "Remote" {print $2}')
+
+            if [[ $isRemote = "yes" ]]; then
+                local str="(remote)"
+            else
+                local str="(desktop)"
+            fi
+
+            echo "busy $str"
+            return 0;
+        fi
+    done
+    
+    echo "free"
+    return 0;
+}
+
+
+filterFree=false
+
+# Parse Args
+# ##########
+while getopts "Fhf:" opt; do
+    case $opt in
+        F) filterFree=true ;;
+        f) file=$OPTARG;;
+        h) printHelp; exit 0;;
+        ?) usage; exit 0;;
+
+    esac
+done
+
+if [ -z $file ]; then
+    echo "No input file given."
+    usage
+    exit 1;
+fi
+
+# Main Loop
+# #########
+while read host; do
+    status=$(getStatus ${host})
+    if ! $filterFree; then echo "$host $status"
+    elif [[ $status =~ free ]]; then echo "$host"; fi
+
+done < "${file}"
